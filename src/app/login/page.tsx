@@ -1,33 +1,42 @@
 'use client'
 
-import { useState } from 'react'
-import { signIn } from 'next-auth/react'
+import { useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import { LogIn, AlertCircle } from 'lucide-react'
+import { loginAction } from './actions'
 import styles from './login.module.css'
 
 export default function LoginPage() {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
-  const [loading, setLoading] = useState(false)
+  const [isPending, startTransition] = useTransition()
   const router = useRouter()
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
-    setLoading(true)
     setError('')
-    const res = await signIn('credentials', {
-      email,
-      password,
-      redirect: false,
+    const formData = new FormData(e.currentTarget)
+
+    startTransition(async () => {
+      try {
+        const res = await loginAction(formData)
+        if (res?.error) {
+          setError(res.error)
+        } else {
+          router.push('/dashboard')
+          router.refresh()
+        }
+      } catch (err: any) {
+        // In Next.js, redirect() throws NEXT_REDIRECT which signals successful navigation
+        if (err?.message?.includes('NEXT_REDIRECT') || err?.digest?.startsWith('NEXT_REDIRECT')) {
+          router.push('/dashboard')
+          router.refresh()
+        } else {
+          setError(err.message || 'Authentication error.')
+        }
+      }
     })
-    setLoading(false)
-    if (res?.error) {
-      setError('Invalid email or password.')
-    } else {
-      router.push('/dashboard')
-    }
   }
 
   const fillDemo = (role: string) => {
@@ -38,6 +47,7 @@ export default function LoginPage() {
     }
     setEmail(accounts[role].email)
     setPassword(accounts[role].password)
+    setError('')
   }
 
   return (
@@ -78,6 +88,7 @@ export default function LoginPage() {
             <label className="form-label" htmlFor="email">Email Address</label>
             <input
               id="email"
+              name="email"
               type="email"
               className="input"
               placeholder="you@roadiq.com"
@@ -91,6 +102,7 @@ export default function LoginPage() {
             <label className="form-label" htmlFor="password">Password</label>
             <input
               id="password"
+              name="password"
               type="password"
               className="input"
               placeholder="••••••••"
@@ -110,10 +122,10 @@ export default function LoginPage() {
           <button
             type="submit"
             className="btn btn-primary w-full"
-            disabled={loading}
+            disabled={isPending}
             style={{ marginTop: '8px' }}
           >
-            {loading ? 'Authenticating...' : (
+            {isPending ? 'Authenticating...' : (
               <>
                 <LogIn size={16} /> Sign In
               </>
