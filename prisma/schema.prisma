@@ -1,0 +1,77 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id          String       @id @default(cuid())
+  name        String
+  email       String       @unique
+  password    String
+  role        String       @default("VIEWER")
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+  inspections Inspection[]
+}
+
+model Road {
+  id            String       @id @default(cuid())
+  name          String
+  location      String
+  city          String
+  state         String       @default("")
+  lat           Float
+  lng           Float
+  lengthKm      Float
+  material      String
+  constructedAt DateTime
+  trafficVolume String
+  healthScore   Float        @default(100)
+  status        String       @default("GOOD")
+  description   String?
+
+  // Site conditions (risk factors) — see src/lib/scoring.ts
+  drainageCondition   String    @default("UNKNOWN") // GOOD | PARTIALLY_BLOCKED | BLOCKED | NONE | UNKNOWN
+  waterlogging        Boolean   @default(false)
+  rainfallZone        String    @default("MODERATE") // LOW | MODERATE | HIGH | VERY_HIGH
+  soilType            String    @default("UNKNOWN") // ROCKY | GRAVEL | SANDY | LOAMY | CLAY | BLACK_COTTON | UNKNOWN
+  pavementThicknessMm Int?
+
+  // Contract & warranty — the contractor of the most recent works
+  contractorName       String?
+  tenderId             String?
+  contractCost         Float?
+  lastRepairAt         DateTime?
+  lastRepairType       String?
+  defectLiabilityYears Int?
+
+  inspections   Inspection[]
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
+}
+
+model Inspection {
+  id             String    @id @default(cuid())
+  road           Road      @relation(fields: [roadId], references: [id], onDelete: Cascade)
+  roadId         String
+  inspector      User      @relation(fields: [inspectorId], references: [id])
+  inspectorId    String
+  date           DateTime  @default(now())
+  imageUrl       String?
+  aiScore        Float?
+  damageTypes    String    // Changed to String (JSON serialized array or comma separated)
+  severityLevel  String    @default("LOW")
+  notes          String?
+  weatherCond    String?
+  trafficLoad    String?
+  drainageObserved String?
+  waterlogging   Boolean?
+  causeAnalysis  String?
+  maintenanceEst Float?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+}
